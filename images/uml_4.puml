@@ -1,0 +1,25 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+hide footbox
+title Получение суммы расходов по категории
+participant BudgetModule as Budgets
+participant TransactionModule as Transactions
+database PostgreSQL as Db
+Budgets -> Transactions : GetTotalAsync(ExpenseSummaryRequest, cancellationToken)
+activate Transactions
+Transactions -> Transactions : Проверка периода и категории пользователя
+alt Параметры корректны
+Transactions -> Db : Расходы пользователя по категории\nFrom <= OperationDate < ToExclusive
+Db --> Transactions : Сумма расходов (0 при отсутствии операций)
+Transactions --> Budgets : ExpenseSummaryResult(true, total, null)
+note over Budgets : Сравнить сумму с месячным лимитом
+else Некорректный период
+Transactions --> Budgets : ExpenseSummaryResult(false, null, INVALID_PERIOD)
+note over Budgets : Прекратить расчет (HTTP 400)
+else Категория недоступна или имеет тип Income
+Transactions --> Budgets : Ошибка CATEGORY_NOT_FOUND / INVALID_CATEGORY_TYPE
+end
+deactivate Transactions
+@enduml

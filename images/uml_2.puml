@@ -1,0 +1,26 @@
+@startuml
+!pragma layout smetana
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam componentStyle rectangle
+title Внутренние зависимости модулей
+left to right direction
+rectangle TransactionModule as Transactions
+rectangle AccountModule as Accounts
+rectangle BudgetModule as Budgets
+rectangle ReportModule as Reports
+rectangle "IAccountValidationService\n<<interface>>" as AccountContract
+rectangle "IExpenseQueryService\n<<interface>>" as ExpenseContract
+Transactions ..> AccountContract : использует
+Accounts -- AccountContract : реализует
+Budgets ..> ExpenseContract : использует
+Transactions -- ExpenseContract : реализует
+Reports ..> Accounts : публичный контракт
+Reports ..> Transactions : публичный контракт
+Reports ..> Budgets : публичный контракт
+note bottom of Reports
+Интерфейсы и DTO:
+PersonalFinance.Contracts
+end note
+@enduml

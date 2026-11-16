@@ -1,0 +1,28 @@
+@startuml
+!pragma layout smetana
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam componentStyle rectangle
+title Архитектура системы управления личными финансами
+rectangle "WPF-клиент" as Client
+rectangle "ASP.NET Core API\n.NET 10" as Api
+rectangle AccountModule as Accounts
+rectangle TransactionModule as Transactions
+rectangle BudgetModule as Budgets
+rectangle ReportModule as Reports
+database PostgreSQL as Db
+Client --> Api : HTTP / JSON
+Api --> Accounts
+Api --> Transactions
+Api --> Budgets
+Api --> Reports
+Transactions --> Accounts : проверка счета
+Budgets --> Transactions : сумма расходов
+Reports --> Accounts
+Reports --> Transactions
+Reports --> Budgets
+Accounts --> Db : счета
+Transactions --> Db : операции и категории
+Budgets --> Db : лимиты
+@enduml

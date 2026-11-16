@@ -1,0 +1,25 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+hide footbox
+title Общий сценарий регистрации расхода
+participant "WPF-клиент" as Client
+participant "ASP.NET Core API" as Api
+participant TransactionModule as Transactions
+participant AccountModule as Accounts
+database PostgreSQL as Db
+Client -> Api : Добавить расход
+Api -> Transactions : Регистрация расхода
+Transactions -> Accounts : Проверить доступность счета
+Accounts --> Transactions : Результат проверки
+alt Счет доступен
+Transactions -> Db : Сохранить расход
+Db --> Transactions : Расход сохранен
+Transactions --> Api : Созданная операция
+Api --> Client : Расход зарегистрирован
+else Счет недоступен
+Transactions --> Api : Ошибка проверки счета
+Api --> Client : Сообщение об ошибке
+end
+@enduml

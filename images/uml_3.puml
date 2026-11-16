@@ -1,0 +1,25 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+hide footbox
+title Проверка доступности счета
+participant TransactionModule as Transactions
+participant AccountModule as Accounts
+database PostgreSQL as Db
+Transactions -> Accounts : ValidateAsync(AccountCheckRequest, cancellationToken)
+activate Accounts
+Accounts -> Db : Поиск счета текущего пользователя
+Db --> Accounts : Данные счета
+alt Счет доступен и не архивирован
+Accounts --> Transactions : ValidationResult(true, null)
+note over Transactions : Продолжить регистрацию операции
+else Счет отсутствует или принадлежит другому пользователю
+Accounts --> Transactions : ValidationResult(false, ACCOUNT_NOT_FOUND)
+note over Transactions : Отклонить операцию (HTTP 404)
+else Счет архивирован
+Accounts --> Transactions : ValidationResult(false, ACCOUNT_ARCHIVED)
+note over Transactions : Отклонить операцию (HTTP 409)
+end
+deactivate Accounts
+@enduml

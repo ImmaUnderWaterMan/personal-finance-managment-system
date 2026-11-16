@@ -1,0 +1,17 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+
+# Build output
+**/bin/
+**/obj/
+
+# Solution files excluded at this stage
+*.sln
+*.slnx
+
+# Local secrets
+.env
+.env.*
+!.env.example
