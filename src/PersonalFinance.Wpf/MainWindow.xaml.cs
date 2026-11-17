@@ -50,13 +50,26 @@ public partial class MainWindow : Window
         {
             var spent = MonthTransactions.Where(t => !t.IsIncome && t.Category == b.Key).Sum(t => t.Amount);
             return new { Category = b.Key, Summary = $"{Money(spent)} из {Money(b.Value)}", Percent = Math.Min(100m, spent / b.Value * 100m),
-                BarColor = spent > b.Value ? "#B65539" : "#177F72",
+                BarColor = spent > b.Value ? "#B65539" : "#805EFF",
                 Status = spent > b.Value ? "Превышение: " + Money(spent - b.Value) : "Осталось: " + Money(b.Value - spent) };
         }).ToList();
         ReportList.ItemsSource = MonthTransactions.Where(t => !t.IsIncome).GroupBy(t => t.Category)
             .Select(g => new { Category = g.Key, Amount = g.Sum(t => t.Amount) }).OrderByDescending(g => g.Amount)
             .Select(g => new { g.Category, AmountText = Money(g.Amount) }).ToList();
         ReportTotal.Text = "Разница доходов и расходов за месяц: " + Money(MonthTransactions.Sum(t => t.IsIncome ? t.Amount : -t.Amount));
+        var income = MonthTransactions.Where(t => t.IsIncome).Sum(t => t.Amount);
+        var expenses = MonthTransactions.Where(t => !t.IsIncome).Sum(t => t.Amount);
+        SavingsGauge.Value = income > 0 ? (double)Math.Clamp((income - expenses) / income * 100m, 0m, 100m) : 0;
+        var budgetSpent = MonthTransactions.Where(t => !t.IsIncome && budgetLimits.ContainsKey(t.Category)).Sum(t => t.Amount);
+        BudgetGauge.Value = (double)(budgetSpent / budgetLimits.Values.Sum() * 100m);
+        var categories = MonthTransactions.Where(t => !t.IsIncome).GroupBy(t => t.Category)
+            .Select(g => new { Category = g.Key, Amount = g.Sum(t => t.Amount) }).OrderByDescending(g => g.Amount).ToList();
+        var maxExpense = categories.Count > 0 ? categories.Max(t => t.Amount) : 1m;
+        ChartList.ItemsSource = categories.Select((g, i) => new
+        {
+            g.Category, AmountText = Money(g.Amount), Height = (double)(g.Amount / maxExpense * 115m),
+            Color = i == 0 ? "#805EFF" : "#A0AFDA"
+        }).ToList();
         FilterTransactions();
         UpdatePage();
     }
@@ -70,6 +83,7 @@ public partial class MainWindow : Window
     private void UpdatePage()
     {
         PageTitle.Text = page;
+        InsightsPanel.Visibility = page is "Обзор" or "Отчёты" ? Visibility.Visible : Visibility.Collapsed;
         SummaryPanel.Visibility = page is "Обзор" or "Отчёты" ? Visibility.Visible : Visibility.Collapsed;
         AccountsPanel.Visibility = page is "Обзор" or "Счета" ? Visibility.Visible : Visibility.Collapsed;
         OperationsPanel.Visibility = page is "Обзор" or "Операции" ? Visibility.Visible : Visibility.Collapsed;
@@ -77,8 +91,8 @@ public partial class MainWindow : Window
         ReportsPanel.Visibility = page == "Отчёты" ? Visibility.Visible : Visibility.Collapsed;
         foreach (var button in new[] { OverviewNav, AccountsNav, TransactionsNav, BudgetsNav, ReportsNav })
         {
-            button.Background = button.Tag.ToString() == page ? new SolidColorBrush(Color.FromRgb(40, 78, 85)) : Brushes.Transparent;
-            button.Foreground = button.Tag.ToString() == page ? Brushes.White : new SolidColorBrush(Color.FromRgb(196, 211, 214));
+            button.Background = button.Tag.ToString() == page ? new SolidColorBrush(Color.FromRgb(128, 94, 255)) : Brushes.Transparent;
+            button.Foreground = button.Tag.ToString() == page ? Brushes.White : new SolidColorBrush(Color.FromRgb(64, 72, 103));
         }
     }
 
@@ -102,7 +116,7 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() != true || dialog.Result is null) return;
         transactions.Insert(0, dialog.Result);
         Refresh();
-        StatusLabel.Text = "Операция добавлена в демо-режиме · " + DateTime.Now.ToString("HH:mm");
+        StatusLabel.Text = "Операция добавлена · " + DateTime.Now.ToString("HH:mm");
     }
 }
 
