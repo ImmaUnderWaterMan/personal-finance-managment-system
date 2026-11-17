@@ -1,0 +1,23 @@
+<Window x:Class="PersonalFinance.Wpf.TransactionWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="Добавить операцию" Width="460" Height="690" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+ <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="28">
+  <TextBlock Text="Новая операция" FontSize="25" FontWeight="SemiBold"/>
+  <TextBlock Text="Заполните сведения о доходе или расходе" Style="{StaticResource Caption}" Margin="0,6,0,20"/>
+  <Label Content="Тип операции" Target="{Binding ElementName=TypeBox}"/>
+  <ComboBox x:Name="TypeBox" SelectedIndex="0" SelectionChanged="TypeChanged"><ComboBoxItem Content="Расход"/><ComboBoxItem Content="Доход"/></ComboBox>
+  <Label Content="Сумма, ₽" Target="{Binding ElementName=AmountBox}" Margin="0,8,0,0"/>
+  <TextBox x:Name="AmountBox"/>
+  <Label Content="Счёт" Target="{Binding ElementName=AccountBox}" Margin="0,8,0,0"/>
+  <ComboBox x:Name="AccountBox"/>
+  <Label Content="Категория" Target="{Binding ElementName=CategoryBox}" Margin="0,8,0,0"/>
+  <ComboBox x:Name="CategoryBox"/>
+  <Label Content="Дата" Target="{Binding ElementName=DateBox}" Margin="0,8,0,0"/>
+  <DatePicker x:Name="DateBox" Padding="8"/>
+  <Label Content="Описание" Target="{Binding ElementName=DescriptionBox}" Margin="0,8,0,0"/>
+  <TextBox x:Name="DescriptionBox" MaxLength="150"/>
+  <TextBlock x:Name="ErrorLabel" Foreground="#B44532" TextWrapping="Wrap" Margin="0,12,0,0" AutomationProperties.LiveSetting="Polite"/>
+  <Grid Margin="0,18,0,0"><Button Content="Отмена" IsCancel="True" HorizontalAlignment="Left" Background="#E6ECEF" Foreground="#334A55"/><Button Content="Добавить" IsDefault="True" Click="Save" HorizontalAlignment="Right"/></Grid>
+ </StackPanel></ScrollViewer>
+</Window>

@@ -1,0 +1,80 @@
+<Application x:Class="PersonalFinance.Wpf.App"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ StartupUri="MainWindow.xaml">
+ <Application.Resources>
+  <SolidColorBrush x:Key="Ink" Color="#182A32"/>
+  <SolidColorBrush x:Key="Muted" Color="#71818B"/>
+  <SolidColorBrush x:Key="Accent" Color="#177F72"/>
+  <Style TargetType="Window">
+   <Setter Property="FontFamily" Value="Segoe UI"/>
+   <Setter Property="FontSize" Value="14"/>
+   <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+   <Setter Property="Background" Value="#F4F6F8"/>
+  </Style>
+  <Style TargetType="Button">
+   <Setter Property="Background" Value="#177F72"/>
+   <Setter Property="Foreground" Value="White"/>
+   <Setter Property="Padding" Value="20,11"/>
+   <Setter Property="BorderThickness" Value="0"/>
+   <Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="FontWeight" Value="SemiBold"/>
+   <Setter Property="Template">
+    <Setter.Value>
+     <ControlTemplate TargetType="Button">
+      <Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+       <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+      </Border>
+      <ControlTemplate.Triggers>
+       <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.84"/></Trigger>
+       <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="#60BFAF"/><Setter TargetName="Surface" Property="BorderThickness" Value="2"/></Trigger>
+       <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.45"/></Trigger>
+      </ControlTemplate.Triggers>
+     </ControlTemplate>
+    </Setter.Value>
+   </Setter>
+  </Style>
+  <Style x:Key="Nav" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+   <Setter Property="Background" Value="Transparent"/>
+   <Setter Property="Foreground" Value="#C4D3D6"/>
+   <Setter Property="HorizontalContentAlignment" Value="Left"/>
+   <Setter Property="Margin" Value="0,3"/>
+   <Setter Property="Padding" Value="14,13"/>
+  </Style>
+  <Style TargetType="TextBox">
+   <Setter Property="Padding" Value="10,9"/>
+   <Setter Property="BorderBrush" Value="#D5DFE3"/>
+   <Setter Property="Background" Value="White"/>
+   <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style TargetType="ComboBox"><Setter Property="Padding" Value="10,8"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+  <Style x:Key="Card" TargetType="Border">
+   <Setter Property="Background" Value="White"/>
+   <Setter Property="CornerRadius" Value="12"/>
+   <Setter Property="Padding" Value="22"/>
+   <Setter Property="BorderBrush" Value="#E4EAED"/>
+   <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+  <Style x:Key="Caption" TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource Muted}"/><Setter Property="FontSize" Value="12"/></Style>
+  <Style TargetType="DataGrid">
+   <Setter Property="AutoGenerateColumns" Value="False"/>
+   <Setter Property="CanUserAddRows" Value="False"/>
+   <Setter Property="CanUserDeleteRows" Value="False"/>
+   <Setter Property="IsReadOnly" Value="True"/>
+   <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+   <Setter Property="HorizontalGridLinesBrush" Value="#EDF1F3"/>
+   <Setter Property="BorderThickness" Value="0"/>
+   <Setter Property="RowHeight" Value="47"/>
+   <Setter Property="ColumnHeaderHeight" Value="37"/>
+   <Setter Property="HeadersVisibility" Value="Column"/>
+   <Setter Property="Background" Value="White"/>
+   <Setter Property="RowBackground" Value="White"/>
+   <Setter Property="AlternatingRowBackground" Value="#FAFCFC"/>
+  </Style>
+  <Style TargetType="DataGridColumnHeader">
+   <Setter Property="Background" Value="#F4F7F8"/><Setter Property="Foreground" Value="#71818B"/>
+   <Setter Property="FontWeight" Value="Normal"/><Setter Property="Padding" Value="10,0"/><Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style TargetType="DataGridCell"><Setter Property="Padding" Value="10,8"/><Setter Property="BorderThickness" Value="0"/></Style>
+ </Application.Resources>
+</Application>
