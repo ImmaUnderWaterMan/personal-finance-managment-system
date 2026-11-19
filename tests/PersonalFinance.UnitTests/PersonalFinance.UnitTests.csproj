@@ -13,5 +13,6 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <ProjectReference Include="../../src/PersonalFinance.AccountModule/PersonalFinance.AccountModule.csproj" />
+    <ProjectReference Include="../../src/PersonalFinance.TransactionModule/PersonalFinance.TransactionModule.csproj" />
   </ItemGroup>
 </Project>
