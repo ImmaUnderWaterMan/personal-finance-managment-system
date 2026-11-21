@@ -1,4 +1,4 @@
- # Курсовое проектирование. Этап 1
+# Курсовое проектирование. Этап 1
 ## Разработка перечня артефактов и протоколов проекта
 
 **Тема курсового проекта:** «Разработка системы управления личными финансами»
@@ -245,7 +245,8 @@ personal-finance-managment-system/
 │   ├── PersonalFinance.AccountModule/
 │   ├── PersonalFinance.TransactionModule/
 │   ├── PersonalFinance.BudgetModule/
-│   └── PersonalFinance.ReportModule/
+│   ├── PersonalFinance.ReportModule/
+│   └── PersonalFinance.Persistence/
 ├── tests/
 │   ├── PersonalFinance.UnitTests/
 │   └── PersonalFinance.IntegrationTests/
