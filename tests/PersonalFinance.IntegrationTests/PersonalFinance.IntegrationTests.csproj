@@ -16,5 +16,6 @@
     <ProjectReference Include="../../src/PersonalFinance.TransactionModule/PersonalFinance.TransactionModule.csproj" />
     <ProjectReference Include="../../src/PersonalFinance.BudgetModule/PersonalFinance.BudgetModule.csproj" />
     <ProjectReference Include="../../src/PersonalFinance.ReportModule/PersonalFinance.ReportModule.csproj" />
+    <ProjectReference Include="../../src/PersonalFinance.Persistence/PersonalFinance.Persistence.csproj" />
   </ItemGroup>
 </Project>

@@ -11,5 +11,7 @@
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <ProjectReference Include="../PersonalFinance.AccountModule/PersonalFinance.AccountModule.csproj" />
+    <ProjectReference Include="../PersonalFinance.TransactionModule/PersonalFinance.TransactionModule.csproj" />
+    <ProjectReference Include="../PersonalFinance.BudgetModule/PersonalFinance.BudgetModule.csproj" />
   </ItemGroup>
 </Project>
