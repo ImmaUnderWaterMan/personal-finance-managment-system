@@ -118,6 +118,25 @@
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Center" />
                         </Grid>
+                        <WrapPanel
+                            Margin="0,0,0,18">
+                            <Button
+                                Content="+ Счёт"
+                                Click="AddAccount"
+                                Margin="0,0,8,6" />
+                            <Button
+                                Content="+ Категория"
+                                Click="AddCategory"
+                                Margin="0,0,8,6" />
+                            <Button
+                                Content="Бюджет"
+                                Click="SetBudget"
+                                Margin="0,0,8,6" />
+                            <Button
+                                Content="Обновить"
+                                Click="RefreshData"
+                                Margin="0,0,8,6" />
+                        </WrapPanel>
                         <UniformGrid
                             x:Name="SummaryPanel"
                             Columns="3"
@@ -316,7 +335,7 @@
                                                         FontWeight="Bold"
                                                         Margin="0,10,0,6" />
                                                     <TextBlock
-                                                        Text="Активный счёт · RUB"
+                                                        Text="{Binding StateText}"
                                                         Style="{StaticResource Caption}" />
                                                 </StackPanel>
                                             </Border>

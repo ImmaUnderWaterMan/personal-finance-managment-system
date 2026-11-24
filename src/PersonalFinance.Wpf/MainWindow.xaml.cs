@@ -1,117 +1,81 @@
 using System.Globalization;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using PersonalFinance.Contracts.Accounts;
+using PersonalFinance.Contracts.Budgets;
+using PersonalFinance.Contracts.Transactions;
+using PersonalFinance.Contracts.Reports;
 
 namespace PersonalFinance.Wpf;
 
 public partial class MainWindow : Window
 {
+    private readonly FinanceApi api;
     private readonly List<FinanceTransaction> transactions = [];
-
-
-
-    private readonly Dictionary<string, decimal> openingBalances = new()
-    {
-        ["Основной счёт"] = 24500m,
-        ["Накопления"] = 120000m,
-        ["Наличные"] = 5000m
-    };
-
-
-
-    private readonly Dictionary<string, decimal> budgetLimits = new()
-    {
-        ["Продукты"] = 15000m,
-        ["Транспорт"] = 5000m,
-        ["Развлечения"] = 7000m
-    };
-
-
-
+    private AccountDto[] accounts = [];
+    private CategoryDto[] categories = [];
     private string page = "Обзор";
+    private bool loading;
 
-    public MainWindow()
+    public MainWindow(FinanceApi api)
     {
+        this.api = api;
         InitializeComponent();
-
-        var today = DateTime.Today;
-        transactions.AddRange([
-            new(today.AddDays(-Math.Min(today.Day - 1, 3)), "Заработная плата", "Зарплата", "Основной счёт", 85000m, true),
-            new(today, "Покупки в супермаркете", "Продукты", "Основной счёт", 3450m, false),
-            new(today, "Проездной билет", "Транспорт", "Основной счёт", 2800m, false),
-            new(today.AddDays(-Math.Min(today.Day - 1, 1)), "Кино и ужин", "Развлечения", "Основной счёт", 2400m, false),
-            new(today.AddDays(-Math.Min(today.Day - 1, 2)), "Продукты на неделю", "Продукты", "Наличные", 4250m, false)
-        ]);
-
-        Refresh();
+        Loaded += async (_, _) => await Reload();
     }
 
-    internal static string Money(decimal amount) =>
-        amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
+    internal static string Money(decimal amount) => amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
 
-    private IEnumerable<FinanceTransaction> MonthTransactions =>
-        transactions.Where(t =>
-            t.Date.Year == DateTime.Today.Year &&
-            t.Date.Month == DateTime.Today.Month);
-
-    private void Refresh()
+    private async Task Reload()
     {
-        PeriodLabel.Text = DateTime.Today.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("ru-RU"));
-        BalanceLabel.Text = Money(openingBalances.Values.Sum() + transactions.Sum(t => t.IsIncome ? t.Amount : -t.Amount));
-        IncomeLabel.Text = Money(MonthTransactions.Where(t => t.IsIncome).Sum(t => t.Amount));
-        ExpenseLabel.Text = Money(MonthTransactions.Where(t => !t.IsIncome).Sum(t => t.Amount));
-
-        AccountsList.ItemsSource = openingBalances.Select(a => new
+        if (loading) return;
+        loading = true;
+        try
         {
-            Name = a.Key,
-            BalanceText = Money(a.Value + transactions.Where(t => t.Account == a.Key).Sum(t => t.IsIncome ? t.Amount : -t.Amount))
-        }).ToList();
-
-        BudgetList.ItemsSource = budgetLimits.Select(b =>
-        {
-            var spent = MonthTransactions.Where(t => !t.IsIncome && t.Category == b.Key).Sum(t => t.Amount);
-            return new
+            var today = DateTime.Today;
+            var from = new DateOnly(today.Year, today.Month, 1);
+            var to = from.AddMonths(1);
+            var loadedAccounts = await api.GetAsync<AccountDto[]>("accounts");
+            var loadedCategories = await api.GetAsync<CategoryDto[]>("categories");
+            var report = await api.GetAsync<FinanceReportDto>($"reports/summary?from={from:yyyy-MM-dd}&toExclusive={to:yyyy-MM-dd}");
+            var history = await api.GetAsync<TransactionDto[]>($"transactions?from=0001-01-01&toExclusive={to:yyyy-MM-dd}");
+            var budgets = await api.GetAsync<BudgetReportDto[]>($"budgets?year={today.Year}&month={today.Month}");
+            accounts = loadedAccounts;
+            categories = loadedCategories;
+            transactions.Clear();
+            transactions.AddRange(history.Select(t => new FinanceTransaction(t.OperationDate.ToDateTime(TimeOnly.MinValue),
+                t.Comment ?? categories.FirstOrDefault(c => c.Id == t.CategoryId)?.Name ?? "Операция",
+                categories.FirstOrDefault(c => c.Id == t.CategoryId)?.Name ?? "Категория",
+                accounts.FirstOrDefault(a => a.Id == t.AccountId)?.Name ?? "Счёт", t.Amount, t.Type == TransactionType.Income)));
+            PeriodLabel.Text = today.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("ru-RU"));
+            BalanceLabel.Text = Money(report.Accounts.Sum(a => a.BalanceAtEnd));
+            IncomeLabel.Text = Money(report.TotalIncome);
+            ExpenseLabel.Text = Money(report.TotalExpense);
+            AccountsList.ItemsSource = report.Accounts.Select(a => new { a.Name, BalanceText = Money(a.BalanceAtEnd), StateText = a.IsArchived ? "Архивный счёт · RUB" : "Активный счёт · RUB" }).ToArray();
+            BudgetList.ItemsSource = budgets.Select(b => new
             {
-                Category = b.Key,
-                Summary = $"{Money(spent)} из {Money(b.Value)}",
-                Percent = Math.Min(100m, spent / b.Value * 100m),
-                BarColor = spent > b.Value ? "#B65539" : "#805EFF",
-                Status = spent > b.Value ? "Превышение: " + Money(spent - b.Value) : "Осталось: " + Money(b.Value - spent)
-            };
-        }).ToList();
-
-        ReportList.ItemsSource = MonthTransactions.Where(t => !t.IsIncome)
-            .GroupBy(t => t.Category)
-            .Select(g => new { Category = g.Key, Amount = g.Sum(t => t.Amount) })
-            .OrderByDescending(g => g.Amount)
-            .Select(g => new { g.Category, AmountText = Money(g.Amount) }).ToList();
-
-        ReportTotal.Text = "Разница доходов и расходов за месяц: " + Money(MonthTransactions.Sum(t => t.IsIncome ? t.Amount : -t.Amount));
-
-        var income = MonthTransactions.Where(t => t.IsIncome).Sum(t => t.Amount);
-        var expenses = MonthTransactions.Where(t => !t.IsIncome).Sum(t => t.Amount);
-        SavingsGauge.Value = income > 0 ? (double)Math.Clamp((income - expenses) / income * 100m, 0m, 100m) : 0;
-
-        var budgetSpent = MonthTransactions.Where(t => !t.IsIncome && budgetLimits.ContainsKey(t.Category)).Sum(t => t.Amount);
-        BudgetGauge.Value = (double)(budgetSpent / budgetLimits.Values.Sum() * 100m);
-
-        var categories = MonthTransactions.Where(t => !t.IsIncome)
-            .GroupBy(t => t.Category)
-            .Select(g => new { Category = g.Key, Amount = g.Sum(t => t.Amount) })
-            .OrderByDescending(g => g.Amount).ToList();
-        var maxExpense = categories.Count > 0 ? categories.Max(t => t.Amount) : 1m;
-
-        ChartList.ItemsSource = categories.Select((g, i) => new
+                Category = b.CategoryName,
+                Summary = $"{Money(b.Budget.Spent)} из {Money(b.Budget.Limit)}",
+                Percent = Math.Min(100m, b.Budget.Spent / b.Budget.Limit * 100m),
+                BarColor = b.Budget.Status == BudgetStatus.Exceeded ? "#B65539" : "#805EFF",
+                Status = b.Budget.Remaining < 0 ? "Превышение: " + Money(-b.Budget.Remaining) : "Осталось: " + Money(b.Budget.Remaining)
+            }).ToArray();
+            ReportList.ItemsSource = report.ExpensesByCategory.Select(c => new { Category = c.Name, AmountText = Money(c.Amount) }).ToArray();
+            ReportTotal.Text = "Разница доходов и расходов за месяц: " + Money(report.NetIncome);
+            SavingsGauge.Value = report.TotalIncome > 0 ? (double)Math.Clamp(report.NetIncome / report.TotalIncome * 100m, 0m, 100m) : 0;
+            BudgetGauge.Value = budgets.Length > 0 ? (double)(budgets.Sum(b => b.Budget.Spent) / budgets.Sum(b => b.Budget.Limit) * 100m) : 0;
+            var maximum = report.ExpensesByCategory.Count > 0 ? report.ExpensesByCategory.Max(c => c.Amount) : 1m;
+            ChartList.ItemsSource = report.ExpensesByCategory.Select((c, i) => new { Category = c.Name, AmountText = Money(c.Amount), Height = (double)(c.Amount / maximum * 115m), Color = i == 0 ? "#805EFF" : "#A0AFDA" }).ToArray();
+            FilterTransactions();
+            UpdatePage();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidOperationException)
         {
-            g.Category,
-            AmountText = Money(g.Amount),
-            Height = (double)(g.Amount / maxExpense * 115m),
-            Color = i == 0 ? "#805EFF" : "#A0AFDA"
-        }).ToList();
-
-        FilterTransactions();
-        UpdatePage();
+            MessageBox.Show(this, exception is HttpRequestException ? "Сервер недоступен. Проверьте запуск PersonalFinance.Api." : exception.Message, "Не удалось загрузить данные", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally { loading = false; }
     }
 
     private void Navigate(object sender, RoutedEventArgs e)
@@ -129,52 +93,88 @@ public partial class MainWindow : Window
         OperationsPanel.Visibility = page is "Обзор" or "Операции" ? Visibility.Visible : Visibility.Collapsed;
         BudgetsPanel.Visibility = page is "Обзор" or "Бюджеты" ? Visibility.Visible : Visibility.Collapsed;
         ReportsPanel.Visibility = page == "Отчёты" ? Visibility.Visible : Visibility.Collapsed;
-
         foreach (var button in new[] { OverviewNav, AccountsNav, TransactionsNav, BudgetsNav, ReportsNav })
         {
-            button.Background = button.Tag.ToString() == page
-                ? new SolidColorBrush(Color.FromRgb(128, 94, 255))
-                : Brushes.Transparent;
-            button.Foreground = button.Tag.ToString() == page
-                ? Brushes.White
-                : new SolidColorBrush(Color.FromRgb(64, 72, 103));
+            button.Background = button.Tag.ToString() == page ? new SolidColorBrush(Color.FromRgb(128, 94, 255)) : Brushes.Transparent;
+            button.Foreground = button.Tag.ToString() == page ? Brushes.White : new SolidColorBrush(Color.FromRgb(64, 72, 103));
         }
     }
 
     private void SearchChanged(object sender, TextChangedEventArgs e)
     {
-        if (OperationsGrid is not null)
-            FilterTransactions();
+        if (OperationsGrid is not null && EmptyLabel is not null) FilterTransactions();
     }
 
     private void FilterTransactions()
     {
-        var query = SearchBox.Text.Trim();
-        var filtered = transactions.Where(t => $"{t.Description} {t.Category} {t.Account}".Contains(query, StringComparison.CurrentCultureIgnoreCase))
-            .OrderByDescending(t => t.Date).ToList();
+        var filtered = transactions.Where(t => $"{t.Description} {t.Category} {t.Account}".Contains(SearchBox.Text.Trim(), StringComparison.CurrentCultureIgnoreCase)).OrderByDescending(t => t.Date).ToArray();
         OperationsGrid.ItemsSource = filtered;
-        EmptyLabel.Visibility = filtered.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        EmptyLabel.Visibility = filtered.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void AddTransaction(object sender, RoutedEventArgs e)
+    private async void AddTransaction(object sender, RoutedEventArgs e)
     {
-        var dialog = new TransactionWindow(openingBalances.Keys.ToArray()) { Owner = this };
-        if (dialog.ShowDialog() != true || dialog.Result is null)
+        if (loading) return;
+        if (!accounts.Any(a => !a.IsArchived) || categories.Length == 0)
+        {
+            MessageBox.Show(this, "Сначала создайте счёт и категорию.", "Добавление операции");
             return;
+        }
+        var dialog = new TransactionWindow(api, accounts.Where(a => !a.IsArchived).ToArray(), categories) { Owner = this };
+        if (dialog.ShowDialog() == true) await Reload();
+    }
 
-        transactions.Insert(0, dialog.Result);
+    private async void RefreshData(object sender, RoutedEventArgs e) => await Reload();
 
-        Refresh();
+    private async void AddAccount(object sender, RoutedEventArgs e)
+    {
+        var form = new EntryWindow("Новый счёт");
+        form.AddText("name", "Название"); form.AddText("amount", "Начальный остаток, ₽", "0");
+        form.Submit = async () =>
+        {
+            await api.SendAsync<AccountDto>("accounts", new CreateAccountRequest(form.Text("name"), ParseMoney(form.Text("amount"))));
+        };
+        form.Owner = this;
+        if (form.ShowDialog() == true) await Reload();
+    }
+
+    private async void AddCategory(object sender, RoutedEventArgs e)
+    {
+        var form = new EntryWindow("Новая категория");
+        form.AddText("name", "Название");
+        form.AddChoices("type", "Тип", new[] { new Choice("Доход", TransactionType.Income), new Choice("Расход", TransactionType.Expense) });
+        form.Submit = async () => { await api.SendAsync<CategoryDto>("categories", new CreateCategoryRequest(form.Text("name"), form.Selected<TransactionType>("type"))); };
+        form.Owner = this;
+        if (form.ShowDialog() == true) await Reload();
+    }
+
+    private async void SetBudget(object sender, RoutedEventArgs e)
+    {
+        var expenseCategories = categories.Where(c => c.Type == TransactionType.Expense).ToArray();
+        if (expenseCategories.Length == 0) { MessageBox.Show(this, "Сначала создайте категорию расходов."); return; }
+        var form = new EntryWindow("Бюджет на текущий месяц");
+        form.AddChoices("category", "Категория", expenseCategories.Select(c => new Choice(c.Name, c.Id)).ToArray());
+        form.AddText("amount", "Месячный лимит, ₽");
+        form.Submit = async () =>
+        {
+            var today = DateTime.Today;
+            var id = form.Selected<Guid>("category");
+            await api.SendAsync<BudgetDto>($"budgets/{id}/{today.Year}/{today.Month}", new SetBudgetRequest(id, today.Year, today.Month, ParseMoney(form.Text("amount"))), HttpMethod.Put);
+        };
+        form.Owner = this;
+        if (form.ShowDialog() == true) await Reload();
+    }
+
+    private static decimal ParseMoney(string value)
+    {
+        var raw = value.Trim().Replace(" ", "").Replace("\u00a0", "").Replace(',', '.');
+        if (!decimal.TryParse(raw, NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var amount))
+            throw new InvalidOperationException("Введите корректную сумму.");
+        return amount;
     }
 }
 
-public record FinanceTransaction(
-    DateTime Date,
-    string Description,
-    string Category,
-    string Account,
-    decimal Amount,
-    bool IsIncome)
+public record FinanceTransaction(DateTime Date, string Description, string Category, string Account, decimal Amount, bool IsIncome)
 {
     public string DateText => Date.ToString("dd.MM.yyyy");
     public string AmountText => (IsIncome ? "+ " : "− ") + MainWindow.Money(Amount);
