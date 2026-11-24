@@ -1,0 +1,55 @@
+<Window
+    x:Class="PersonalFinance.Wpf.RegistrationWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Регистрация"
+    Width="440"
+    SizeToContent="Height"
+    ResizeMode="NoResize"
+    WindowStartupLocation="CenterOwner"
+    Loaded="WindowLoaded"
+    Closing="WindowClosing">
+    <StackPanel
+        Margin="32">
+        <TextBlock
+            Text="Регистрация"
+            FontSize="28"
+            FontWeight="Bold"
+            Margin="0,0,0,20" />
+        <Label
+            Content="Имя"
+            Target="{Binding ElementName=DisplayNameBox}" />
+        <TextBox
+            x:Name="DisplayNameBox"
+            AutomationProperties.Name="Имя" />
+        <Label
+            Content="Email"
+            Target="{Binding ElementName=EmailBox}" />
+        <TextBox
+            x:Name="EmailBox"
+            AutomationProperties.Name="Email" />
+        <Label
+            Content="Пароль"
+            Target="{Binding ElementName=PasswordBox}" />
+        <PasswordBox
+            x:Name="PasswordBox"
+            Padding="10"
+            AutomationProperties.Name="Пароль" />
+        <TextBlock
+            x:Name="ErrorLabel"
+            TextWrapping="Wrap"
+            Foreground="Firebrick"
+            Margin="0,12,0,12"
+            AutomationProperties.LiveSetting="Polite" />
+        <Button
+            x:Name="RegisterButton"
+            Content="Зарегистрироваться"
+            IsDefault="True"
+            Margin="0,8,0,8"
+            Click="RegisterClick" />
+        <Button
+            x:Name="BackButton"
+            Content="Назад ко входу"
+            IsCancel="True" />
+    </StackPanel>
+</Window>
