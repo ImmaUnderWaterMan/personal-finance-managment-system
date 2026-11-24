@@ -137,6 +137,60 @@
                                 Click="RefreshData"
                                 Margin="0,0,8,6" />
                         </WrapPanel>
+                        <Border
+                            x:Name="ReportPeriodPanel"
+                            Style="{StaticResource Card}"
+                            Margin="0,0,0,20"
+                            Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock
+                                    Text="Период отчёта"
+                                    FontSize="18"
+                                    FontWeight="SemiBold"
+                                    Margin="0,0,0,12" />
+                                <WrapPanel
+                                    x:Name="ReportPeriodControls"
+                                    Language="ru-RU">
+                                    <StackPanel
+                                        Margin="0,0,16,8">
+                                        <Label
+                                            Content="С"
+                                            Target="{Binding ElementName=ReportFromDate}" />
+                                        <DatePicker
+                                            x:Name="ReportFromDate"
+                                            Width="160"
+                                            Padding="8"
+                                            SelectedDateFormat="Short"
+                                            AutomationProperties.Name="Начало периода отчёта" />
+                                    </StackPanel>
+                                    <StackPanel
+                                        Margin="0,0,16,8">
+                                        <Label
+                                            Content="По"
+                                            Target="{Binding ElementName=ReportToDate}" />
+                                        <DatePicker
+                                            x:Name="ReportToDate"
+                                            Width="160"
+                                            Padding="8"
+                                            SelectedDateFormat="Short"
+                                            AutomationProperties.Name="Окончание периода отчёта включительно" />
+                                    </StackPanel>
+                                    <Button
+                                        x:Name="ShowReportButton"
+                                        Content="Показать"
+                                        Click="ApplyReportPeriod"
+                                        MinWidth="110"
+                                        VerticalAlignment="Bottom"
+                                        Margin="0,0,0,8" />
+                                </WrapPanel>
+                                <TextBlock
+                                    x:Name="ReportPeriodError"
+                                    Foreground="Firebrick"
+                                    TextWrapping="Wrap"
+                                    Margin="0,6,0,0"
+                                    Visibility="Collapsed" />
+                            </StackPanel>
+                        </Border>
                         <UniformGrid
                             x:Name="SummaryPanel"
                             Columns="3"
@@ -147,7 +201,9 @@
                                 Margin="0,0,12,0">
                                 <StackPanel>
                                     <TextBlock
+                                        x:Name="BalanceTitle"
                                         Text="Общий баланс"
+                                        TextWrapping="Wrap"
                                         Foreground="#60568F" />
                                     <TextBlock
                                         x:Name="BalanceLabel"
@@ -165,6 +221,7 @@
                                 Margin="0,0,12,0">
                                 <StackPanel>
                                     <TextBlock
+                                        x:Name="IncomeTitle"
                                         Text="Доходы за месяц"
                                         Foreground="{StaticResource Muted}" />
                                     <TextBlock
@@ -181,6 +238,7 @@
                                 Style="{StaticResource Card}">
                                 <StackPanel>
                                     <TextBlock
+                                        x:Name="ExpenseTitle"
                                         Text="Расходы за месяц"
                                         Foreground="{StaticResource Muted}" />
                                     <TextBlock
@@ -213,13 +271,14 @@
                                         FontWeight="SemiBold"
                                         Margin="0,0,0,16" />
                                     <UniformGrid
+                                        x:Name="RhythmIndicators"
                                         Columns="2">
                                         <StackPanel>
                                             <local:RingGauge
                                                 x:Name="SavingsGauge"
                                                 Width="124"
                                                 Height="124"
-                                                ToolTip="Доля доходов за месяц, оставшаяся после расходов" />
+                                                ToolTip="Доля доходов, оставшаяся после расходов" />
                                             <TextBlock
                                                 Text="Сохранено от дохода"
                                                 FontSize="11"
@@ -227,7 +286,8 @@
                                                 HorizontalAlignment="Center"
                                                 Margin="0,9,0,0" />
                                         </StackPanel>
-                                        <StackPanel>
+                                        <StackPanel
+                                            x:Name="BudgetIndicator">
                                             <local:RingGauge
                                                 x:Name="BudgetGauge"
                                                 Width="124"
@@ -474,7 +534,7 @@
                             Visibility="Collapsed">
                             <StackPanel>
                                 <TextBlock
-                                    Text="Сводка за месяц"
+                                    Text="Сводка за период"
                                     FontSize="18"
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,18" />
@@ -494,6 +554,11 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                <TextBlock
+                                    x:Name="ReportEmptyLabel"
+                                    Text="За выбранный период расходов нет."
+                                    Foreground="{StaticResource Muted}"
+                                    Visibility="Collapsed" />
                                 <TextBlock
                                     x:Name="ReportTotal"
                                     Foreground="{StaticResource Muted}"
