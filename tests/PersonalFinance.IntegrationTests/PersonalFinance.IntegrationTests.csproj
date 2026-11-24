@@ -8,10 +8,13 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.14" PrivateAssets="all" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../src/PersonalFinance.Api/PersonalFinance.Api.csproj" />
     <ProjectReference Include="../../src/PersonalFinance.AccountModule/PersonalFinance.AccountModule.csproj" />
     <ProjectReference Include="../../src/PersonalFinance.TransactionModule/PersonalFinance.TransactionModule.csproj" />
     <ProjectReference Include="../../src/PersonalFinance.BudgetModule/PersonalFinance.BudgetModule.csproj" />

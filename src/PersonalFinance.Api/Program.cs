@@ -97,3 +97,5 @@ app.MapGet("/health", async (FinanceDbContext database, CancellationToken cancel
         ? Results.Ok(new { status = "ok" })
         : Results.Problem(statusCode: 503, title: "Нет подключения к PostgreSQL."));
 app.Run();
+
+public partial class Program { }

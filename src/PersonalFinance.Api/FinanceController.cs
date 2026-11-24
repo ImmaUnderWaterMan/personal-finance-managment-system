@@ -38,6 +38,8 @@ public sealed class FinanceController(IAccountService accounts, ITransactionServ
             throw new BudgetException(BudgetErrorCodes.InvalidPeriod, "Параметры адреса и запроса не совпадают.");
         return budgets.SetAsync(UserId, request, ct);
     }
+    [HttpGet("budgets/{categoryId:guid}/{year:int}/{month:int}")]
+    public Task<BudgetSummaryDto> GetBudget(Guid categoryId, int year, int month, CancellationToken ct) => budgets.GetAsync(UserId, categoryId, year, month, ct);
     [HttpGet("budgets")]
     public Task<IReadOnlyList<BudgetReportDto>> Budgets(int year, int month, CancellationToken ct) => reports.GetMonthlyBudgetsAsync(UserId, year, month, ct);
     [HttpGet("reports/summary")]
