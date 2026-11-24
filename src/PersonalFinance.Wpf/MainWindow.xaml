@@ -324,10 +324,11 @@
                                                 Background="#F0F1FC"
                                                 CornerRadius="10"
                                                 Padding="15"
-                                                Margin="0,0,10,0">
+                                                Margin="0,0,10,10">
                                                 <StackPanel>
                                                     <TextBlock
                                                         Text="{Binding Name}"
+                                                        TextWrapping="Wrap"
                                                         Foreground="{StaticResource Muted}" />
                                                     <TextBlock
                                                         Text="{Binding BalanceText}"
@@ -337,6 +338,26 @@
                                                     <TextBlock
                                                         Text="{Binding StateText}"
                                                         Style="{StaticResource Caption}" />
+                                                    <WrapPanel
+                                                        Margin="0,14,0,0">
+                                                        <Button
+                                                            Content="Переименовать"
+                                                            Tag="{Binding AccountId}"
+                                                            Click="RenameAccount"
+                                                            FontSize="12"
+                                                            Padding="10,7"
+                                                            Margin="0,0,6,4" />
+                                                        <Button
+                                                            Content="В архив"
+                                                            Tag="{Binding AccountId}"
+                                                            Click="ArchiveAccount"
+                                                            IsEnabled="{Binding CanArchive}"
+                                                            FontSize="12"
+                                                            Padding="10,7"
+                                                            Background="#E3E2F6"
+                                                            Foreground="{StaticResource Ink}"
+                                                            Margin="0,0,0,4" />
+                                                    </WrapPanel>
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>

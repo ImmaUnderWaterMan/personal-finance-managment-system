@@ -25,9 +25,12 @@ public sealed class FinanceApi : IDisposable
         return (await response.Content.ReadFromJsonAsync<T>(json))!;
     }
 
-    public async Task<T> SendAsync<T>(string path, object data, HttpMethod? method = null)
+    public async Task<T> SendAsync<T>(string path, object? data = null, HttpMethod? method = null)
     {
-        using var request = new HttpRequestMessage(method ?? HttpMethod.Post, path) { Content = JsonContent.Create(data, options: json) };
+        using var request = new HttpRequestMessage(method ?? HttpMethod.Post, path)
+        {
+            Content = data is null ? null : JsonContent.Create(data, options: json)
+        };
         using var response = await client.SendAsync(request);
         await EnsureSuccess(response);
         return (await response.Content.ReadFromJsonAsync<T>(json))!;

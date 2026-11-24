@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private CategoryDto[] categories = [];
     private string page = "Обзор";
     private bool loading;
+    private bool savingAccount;
 
     public MainWindow(FinanceApi api)
     {
@@ -53,7 +54,14 @@ public partial class MainWindow : Window
             BalanceLabel.Text = Money(report.Accounts.Sum(a => a.BalanceAtEnd));
             IncomeLabel.Text = Money(report.TotalIncome);
             ExpenseLabel.Text = Money(report.TotalExpense);
-            AccountsList.ItemsSource = report.Accounts.Select(a => new { a.Name, BalanceText = Money(a.BalanceAtEnd), StateText = a.IsArchived ? "Архивный счёт · RUB" : "Активный счёт · RUB" }).ToArray();
+            AccountsList.ItemsSource = report.Accounts.Select(a => new
+            {
+                a.AccountId,
+                a.Name,
+                BalanceText = Money(a.BalanceAtEnd),
+                StateText = a.IsArchived ? "Архивный счёт · RUB" : "Активный счёт · RUB",
+                CanArchive = !a.IsArchived
+            }).ToArray();
             BudgetList.ItemsSource = budgets.Select(b => new
             {
                 Category = b.CategoryName,
@@ -114,7 +122,7 @@ public partial class MainWindow : Window
 
     private async void AddTransaction(object sender, RoutedEventArgs e)
     {
-        if (loading) return;
+        if (loading || savingAccount) return;
         if (!accounts.Any(a => !a.IsArchived) || categories.Length == 0)
         {
             MessageBox.Show(this, "Сначала создайте счёт и категорию.", "Добавление операции");
@@ -136,6 +144,64 @@ public partial class MainWindow : Window
         };
         form.Owner = this;
         if (form.ShowDialog() == true) await Reload();
+    }
+
+    private async void RenameAccount(object sender, RoutedEventArgs e)
+    {
+        if (loading || savingAccount || sender is not Button { Tag: Guid accountId }) return;
+        var account = accounts.FirstOrDefault(a => a.Id == accountId);
+        if (account is null) return;
+
+        var form = new EntryWindow("Переименование счёта") { Owner = this };
+        form.AddText("name", "Название", account.Name);
+        var submitting = false;
+        form.Closing += (_, args) => args.Cancel = submitting;
+        form.Submit = async () =>
+        {
+            submitting = true;
+            try
+            {
+                await api.SendAsync<AccountDto>($"accounts/{accountId}",
+                    new RenameAccountRequest(form.Text("name")), HttpMethod.Put);
+            }
+            finally
+            {
+                submitting = false;
+            }
+        };
+
+        if (form.ShowDialog() == true) await Reload();
+    }
+
+    private async void ArchiveAccount(object sender, RoutedEventArgs e)
+    {
+        if (loading || savingAccount || sender is not Button { Tag: Guid accountId }) return;
+        var account = accounts.FirstOrDefault(a => a.Id == accountId);
+        if (account is null || account.IsArchived) return;
+
+        var confirmation = MessageBox.Show(this,
+            $"Архивировать счёт «{account.Name}»?\n\nИстория операций и баланс сохранятся. Добавлять новые операции по этому счёту будет нельзя.",
+            "Архивирование счёта", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (confirmation != MessageBoxResult.Yes) return;
+
+        savingAccount = true;
+        AccountsList.IsEnabled = false;
+        try
+        {
+            await api.SendAsync<AccountDto>($"accounts/{accountId}/archive");
+            await Reload();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidOperationException)
+        {
+            MessageBox.Show(this,
+                exception is HttpRequestException ? "Сервер недоступен. Проверьте запуск PersonalFinance.Api." : exception.Message,
+                "Не удалось архивировать счёт", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            savingAccount = false;
+            AccountsList.IsEnabled = true;
+        }
     }
 
     private async void AddCategory(object sender, RoutedEventArgs e)
