@@ -14,6 +14,7 @@ public partial class MainWindow : Window
 {
     private readonly FinanceApi api;
     private readonly List<FinanceTransaction> transactions = [];
+    private readonly List<FinanceTransaction> periodTransactions = [];
     private AccountDto[] accounts = [];
     private CategoryDto[] categories = [];
     private FinanceReportDto? monthlyReport;
@@ -24,6 +25,8 @@ public partial class MainWindow : Window
     private int budgetMonth;
     private DateOnly reportFrom;
     private DateOnly reportToExclusive;
+    private DateOnly? historyFrom;
+    private DateOnly? historyToExclusive;
     private string page = "Обзор";
     private bool loading;
     private bool savingAccount;
@@ -65,7 +68,10 @@ public partial class MainWindow : Window
             var selectedReport = reportFrom == from && reportToExclusive == to
                 ? report
                 : await GetReport(reportFrom, reportToExclusive);
-            var history = await api.GetAsync<TransactionDto[]>($"transactions?from=0001-01-01&toExclusive={to:yyyy-MM-dd}");
+            var history = await GetTransactionHistory(DateOnly.MinValue, to);
+            var selectedHistory = historyFrom is DateOnly selectedFrom && historyToExclusive is DateOnly selectedTo
+                ? await GetTransactionHistory(selectedFrom, selectedTo)
+                : Array.Empty<TransactionDto>();
             var budgets = await GetBudgets(today.Year, today.Month);
             var selectedBudgets = budgetYear == today.Year && budgetMonth == today.Month
                 ? budgets
@@ -77,10 +83,9 @@ public partial class MainWindow : Window
             currentMonthBudgets = budgets;
             selectedMonthBudgets = selectedBudgets;
             transactions.Clear();
-            transactions.AddRange(history.Select(t => new FinanceTransaction(t.OperationDate.ToDateTime(TimeOnly.MinValue),
-                t.Comment ?? categories.FirstOrDefault(c => c.Id == t.CategoryId)?.Name ?? "Операция",
-                categories.FirstOrDefault(c => c.Id == t.CategoryId)?.Name ?? "Категория",
-                accounts.FirstOrDefault(a => a.Id == t.AccountId)?.Name ?? "Счёт", t.Amount, t.Type == TransactionType.Income)));
+            transactions.AddRange(MapTransactions(history));
+            periodTransactions.Clear();
+            periodTransactions.AddRange(MapTransactions(selectedHistory));
             AccountsList.ItemsSource = report.Accounts.Select(a => new
             {
                 a.AccountId,
@@ -90,7 +95,6 @@ public partial class MainWindow : Window
                 CanArchive = !a.IsArchived
             }).ToArray();
             BudgetGauge.Value = budgets.Length > 0 ? (double)(budgets.Sum(b => b.Budget.Spent) / budgets.Sum(b => b.Budget.Limit) * 100m) : 0;
-            FilterTransactions();
             UpdatePage();
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidOperationException)
@@ -108,6 +112,7 @@ public partial class MainWindow : Window
         loading = value;
         ReportPeriodControls.IsEnabled = !value;
         BudgetPeriodControls.IsEnabled = !value;
+        HistoryPeriodControls.IsEnabled = !value;
     }
 
     private Task<FinanceReportDto> GetReport(DateOnly from, DateOnly toExclusive) =>
@@ -224,6 +229,15 @@ public partial class MainWindow : Window
         {
             ShowBudgets(currentMonthBudgets, currentMonth.Year, currentMonth.Month);
         }
+        HistoryPeriodPanel.Visibility = page == "Операции" ? Visibility.Visible : Visibility.Collapsed;
+        OperationsTitle.Text = page == "Операции" ? "История операций" : "Последние операции";
+        if (page == "Операции")
+        {
+            PeriodLabel.Text = historyFrom is DateOnly from && historyToExclusive is DateOnly to
+                ? $"{from:dd.MM.yyyy} — {to.AddDays(-1):dd.MM.yyyy}"
+                : "Вся история";
+        }
+        FilterTransactions();
         foreach (var button in new[] { OverviewNav, AccountsNav, TransactionsNav, BudgetsNav, ReportsNav })
         {
             button.Background = button.Tag.ToString() == page ? new SolidColorBrush(Color.FromRgb(128, 94, 255)) : Brushes.Transparent;
@@ -238,9 +252,86 @@ public partial class MainWindow : Window
 
     private void FilterTransactions()
     {
-        var filtered = transactions.Where(t => $"{t.Description} {t.Category} {t.Account}".Contains(SearchBox.Text.Trim(), StringComparison.CurrentCultureIgnoreCase)).OrderByDescending(t => t.Date).ToArray();
+        var source = page == "Операции" && historyFrom.HasValue ? periodTransactions : transactions;
+        var filtered = source.Where(t => $"{t.Description} {t.Category} {t.Account}".Contains(SearchBox.Text.Trim(), StringComparison.CurrentCultureIgnoreCase)).OrderByDescending(t => t.Date).ToArray();
         OperationsGrid.ItemsSource = filtered;
         EmptyLabel.Visibility = filtered.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private Task<TransactionDto[]> GetTransactionHistory(DateOnly from, DateOnly toExclusive) =>
+        api.GetAsync<TransactionDto[]>(FormattableString.Invariant(
+            $"transactions?from={from:yyyy-MM-dd}&toExclusive={toExclusive:yyyy-MM-dd}"));
+
+    private IEnumerable<FinanceTransaction> MapTransactions(IEnumerable<TransactionDto> source) =>
+        source.Select(t => new FinanceTransaction(t.OperationDate.ToDateTime(TimeOnly.MinValue),
+            t.Comment ?? categories.FirstOrDefault(c => c.Id == t.CategoryId)?.Name ?? "Операция",
+            categories.FirstOrDefault(c => c.Id == t.CategoryId)?.Name ?? "Категория",
+            accounts.FirstOrDefault(a => a.Id == t.AccountId)?.Name ?? "Счёт", t.Amount, t.Type == TransactionType.Income));
+
+    private async void ApplyHistoryPeriod(object sender, RoutedEventArgs e)
+    {
+        if (loading || savingAccount) return;
+        HistoryPeriodError.Visibility = Visibility.Collapsed;
+        if (HistoryFromDate.SelectedDate is not DateTime fromDate || HistoryToDate.SelectedDate is not DateTime toDate)
+        {
+            ShowHistoryError("Выберите дату начала и дату окончания периода.");
+            return;
+        }
+
+        var from = DateOnly.FromDateTime(fromDate);
+        var through = DateOnly.FromDateTime(toDate);
+        if (from > through)
+        {
+            ShowHistoryError("Дата начала не должна быть позже даты окончания.");
+            return;
+        }
+        if (through == DateOnly.MaxValue)
+        {
+            ShowHistoryError("Выберите более раннюю дату окончания.");
+            return;
+        }
+
+        var toExclusive = through.AddDays(1);
+        SetLoading(true);
+        try
+        {
+            var history = await GetTransactionHistory(from, toExclusive);
+            periodTransactions.Clear();
+            periodTransactions.AddRange(MapTransactions(history));
+            historyFrom = from;
+            historyToExclusive = toExclusive;
+            if (page == "Операции") UpdatePage();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidOperationException)
+        {
+            ShowHistoryError(exception is HttpRequestException
+                ? "Сервер недоступен. Проверьте запуск PersonalFinance.Api."
+                : exception is TaskCanceledException
+                    ? "Сервер не ответил вовремя. Попробуйте ещё раз."
+                    : exception.Message);
+        }
+        finally
+        {
+            SetLoading(false);
+        }
+    }
+
+    private void ResetHistoryPeriod(object sender, RoutedEventArgs e)
+    {
+        if (loading || savingAccount) return;
+        historyFrom = null;
+        historyToExclusive = null;
+        periodTransactions.Clear();
+        HistoryFromDate.SelectedDate = null;
+        HistoryToDate.SelectedDate = null;
+        HistoryPeriodError.Visibility = Visibility.Collapsed;
+        if (page == "Операции") UpdatePage();
+    }
+
+    private void ShowHistoryError(string message)
+    {
+        HistoryPeriodError.Text = message;
+        HistoryPeriodError.Visibility = Visibility.Visible;
     }
 
     private async void AddTransaction(object sender, RoutedEventArgs e)

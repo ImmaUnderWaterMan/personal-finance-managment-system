@@ -433,6 +433,7 @@
                                 <Grid
                                     Margin="0,0,0,14">
                                     <TextBlock
+                                        x:Name="OperationsTitle"
                                         Text="Последние операции"
                                         FontSize="18"
                                         FontWeight="SemiBold"
@@ -449,6 +450,61 @@
                                     Text="Поиск по описанию, категории или счёту"
                                     Style="{StaticResource Caption}"
                                     Margin="0,0,0,12" />
+                                <StackPanel
+                                    x:Name="HistoryPeriodPanel"
+                                    Margin="0,0,0,16"
+                                    Visibility="Collapsed">
+                                    <WrapPanel
+                                        x:Name="HistoryPeriodControls"
+                                        Language="ru-RU">
+                                        <StackPanel
+                                            Margin="0,0,16,8">
+                                            <Label
+                                                Content="С"
+                                                Target="{Binding ElementName=HistoryFromDate}" />
+                                            <DatePicker
+                                                x:Name="HistoryFromDate"
+                                                Width="160"
+                                                Padding="8"
+                                                SelectedDateFormat="Short"
+                                                AutomationProperties.Name="Начало периода истории операций" />
+                                        </StackPanel>
+                                        <StackPanel
+                                            Margin="0,0,16,8">
+                                            <Label
+                                                Content="По"
+                                                Target="{Binding ElementName=HistoryToDate}" />
+                                            <DatePicker
+                                                x:Name="HistoryToDate"
+                                                Width="160"
+                                                Padding="8"
+                                                SelectedDateFormat="Short"
+                                                AutomationProperties.Name="Окончание периода истории включительно" />
+                                        </StackPanel>
+                                        <Button
+                                            x:Name="ShowHistoryButton"
+                                            Content="Показать"
+                                            Click="ApplyHistoryPeriod"
+                                            MinWidth="110"
+                                            VerticalAlignment="Bottom"
+                                            Margin="0,0,8,8" />
+                                        <Button
+                                            x:Name="ResetHistoryButton"
+                                            Content="Сбросить"
+                                            Click="ResetHistoryPeriod"
+                                            ToolTip="Очистить фильтр по датам"
+                                            Background="#E3E2F6"
+                                            Foreground="{StaticResource Ink}"
+                                            VerticalAlignment="Bottom"
+                                            Margin="0,0,0,8" />
+                                    </WrapPanel>
+                                    <TextBlock
+                                        x:Name="HistoryPeriodError"
+                                        Foreground="Firebrick"
+                                        TextWrapping="Wrap"
+                                        Margin="0,6,0,0"
+                                        Visibility="Collapsed" />
+                                </StackPanel>
                                 <DataGrid
                                     x:Name="OperationsGrid"
                                     MaxHeight="360"
@@ -479,7 +535,7 @@
                                 </DataGrid>
                                 <TextBlock
                                     x:Name="EmptyLabel"
-                                    Text="Операции не найдены. Измените запрос или добавьте операцию."
+                                    Text="Операции не найдены. Измените период или поисковый запрос."
                                     Foreground="{StaticResource Muted}"
                                     Margin="0,12,0,0"
                                     Visibility="Collapsed" />
