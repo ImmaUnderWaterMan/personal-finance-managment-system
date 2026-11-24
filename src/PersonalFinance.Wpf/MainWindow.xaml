@@ -491,10 +491,55 @@
                             Margin="0,0,0,20">
                             <StackPanel>
                                 <TextBlock
-                                    Text="Бюджеты на месяц"
+                                    x:Name="BudgetTitle"
+                                    Text="Бюджеты"
                                     FontSize="18"
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,18" />
+                                <StackPanel
+                                    x:Name="BudgetPeriodPanel"
+                                    Margin="0,0,0,18"
+                                    Visibility="Collapsed">
+                                    <WrapPanel
+                                        x:Name="BudgetPeriodControls">
+                                        <StackPanel
+                                            Margin="0,0,16,8">
+                                            <Label
+                                                Content="Месяц"
+                                                Target="{Binding ElementName=BudgetMonthBox}" />
+                                            <ComboBox
+                                                x:Name="BudgetMonthBox"
+                                                Width="170"
+                                                DisplayMemberPath="Name"
+                                                SelectedValuePath="Value"
+                                                AutomationProperties.Name="Месяц бюджета" />
+                                        </StackPanel>
+                                        <StackPanel
+                                            Margin="0,0,16,8">
+                                            <Label
+                                                Content="Год"
+                                                Target="{Binding ElementName=BudgetYearBox}" />
+                                            <TextBox
+                                                x:Name="BudgetYearBox"
+                                                Width="100"
+                                                MaxLength="4"
+                                                AutomationProperties.Name="Год бюджета" />
+                                        </StackPanel>
+                                        <Button
+                                            x:Name="ShowBudgetButton"
+                                            Content="Показать"
+                                            Click="ApplyBudgetPeriod"
+                                            MinWidth="110"
+                                            VerticalAlignment="Bottom"
+                                            Margin="0,0,0,8" />
+                                    </WrapPanel>
+                                    <TextBlock
+                                        x:Name="BudgetPeriodError"
+                                        Foreground="Firebrick"
+                                        TextWrapping="Wrap"
+                                        Margin="0,6,0,0"
+                                        Visibility="Collapsed" />
+                                </StackPanel>
                                 <ItemsControl
                                     x:Name="BudgetList">
                                     <ItemsControl.ItemTemplate>
@@ -502,12 +547,29 @@
                                             <StackPanel
                                                 Margin="0,0,0,18">
                                                 <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock
-                                                        Text="{Binding Category}" />
+                                                        Text="{Binding Category}"
+                                                        TextWrapping="Wrap"
+                                                        VerticalAlignment="Center"
+                                                        Margin="0,0,12,0" />
                                                     <TextBlock
+                                                        Grid.Column="1"
                                                         Text="{Binding Summary}"
-                                                        HorizontalAlignment="Right"
+                                                        VerticalAlignment="Center"
                                                         Foreground="{StaticResource Muted}" />
+                                                    <Button
+                                                        Grid.Column="2"
+                                                        Content="Изменить"
+                                                        Tag="{Binding Budget}"
+                                                        Click="EditBudget"
+                                                        FontSize="12"
+                                                        Padding="10,6"
+                                                        Margin="12,0,0,0" />
                                                 </Grid>
                                                 <ProgressBar
                                                     Value="{Binding Percent, Mode=OneWay}"
@@ -525,6 +587,12 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                <TextBlock
+                                    x:Name="BudgetEmptyLabel"
+                                    Text="На этот месяц бюджеты ещё не установлены."
+                                    Foreground="{StaticResource Muted}"
+                                    TextWrapping="Wrap"
+                                    Visibility="Collapsed" />
                             </StackPanel>
                         </Border>
                         <Border

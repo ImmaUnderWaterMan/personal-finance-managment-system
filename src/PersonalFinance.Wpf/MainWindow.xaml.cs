@@ -18,6 +18,10 @@ public partial class MainWindow : Window
     private CategoryDto[] categories = [];
     private FinanceReportDto? monthlyReport;
     private FinanceReportDto? periodReport;
+    private BudgetReportDto[] currentMonthBudgets = [];
+    private BudgetReportDto[] selectedMonthBudgets = [];
+    private int budgetYear;
+    private int budgetMonth;
     private DateOnly reportFrom;
     private DateOnly reportToExclusive;
     private string page = "Обзор";
@@ -29,6 +33,14 @@ public partial class MainWindow : Window
         this.api = api;
         InitializeComponent();
         var today = DateTime.Today;
+        budgetYear = today.Year;
+        budgetMonth = today.Month;
+        var culture = CultureInfo.GetCultureInfo("ru-RU");
+        BudgetMonthBox.ItemsSource = Enumerable.Range(1, 12)
+            .Select(month => new Choice(culture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(month)), month))
+            .ToArray();
+        BudgetMonthBox.SelectedValue = budgetMonth;
+        BudgetYearBox.Text = budgetYear.ToString(CultureInfo.InvariantCulture);
         reportFrom = new DateOnly(today.Year, today.Month, 1);
         reportToExclusive = reportFrom.AddMonths(1);
         ReportFromDate.SelectedDate = reportFrom.ToDateTime(TimeOnly.MinValue);
@@ -41,8 +53,7 @@ public partial class MainWindow : Window
     private async Task Reload()
     {
         if (loading) return;
-        loading = true;
-        ReportPeriodControls.IsEnabled = false;
+        SetLoading(true);
         try
         {
             var today = DateTime.Today;
@@ -55,11 +66,16 @@ public partial class MainWindow : Window
                 ? report
                 : await GetReport(reportFrom, reportToExclusive);
             var history = await api.GetAsync<TransactionDto[]>($"transactions?from=0001-01-01&toExclusive={to:yyyy-MM-dd}");
-            var budgets = await api.GetAsync<BudgetReportDto[]>($"budgets?year={today.Year}&month={today.Month}");
+            var budgets = await GetBudgets(today.Year, today.Month);
+            var selectedBudgets = budgetYear == today.Year && budgetMonth == today.Month
+                ? budgets
+                : await GetBudgets(budgetYear, budgetMonth);
             accounts = loadedAccounts;
             categories = loadedCategories;
             monthlyReport = report;
             periodReport = selectedReport;
+            currentMonthBudgets = budgets;
+            selectedMonthBudgets = selectedBudgets;
             transactions.Clear();
             transactions.AddRange(history.Select(t => new FinanceTransaction(t.OperationDate.ToDateTime(TimeOnly.MinValue),
                 t.Comment ?? categories.FirstOrDefault(c => c.Id == t.CategoryId)?.Name ?? "Операция",
@@ -73,14 +89,6 @@ public partial class MainWindow : Window
                 StateText = a.IsArchived ? "Архивный счёт · RUB" : "Активный счёт · RUB",
                 CanArchive = !a.IsArchived
             }).ToArray();
-            BudgetList.ItemsSource = budgets.Select(b => new
-            {
-                Category = b.CategoryName,
-                Summary = $"{Money(b.Budget.Spent)} из {Money(b.Budget.Limit)}",
-                Percent = Math.Min(100m, b.Budget.Spent / b.Budget.Limit * 100m),
-                BarColor = b.Budget.Status == BudgetStatus.Exceeded ? "#B65539" : "#805EFF",
-                Status = b.Budget.Remaining < 0 ? "Превышение: " + Money(-b.Budget.Remaining) : "Осталось: " + Money(b.Budget.Remaining)
-            }).ToArray();
             BudgetGauge.Value = budgets.Length > 0 ? (double)(budgets.Sum(b => b.Budget.Spent) / budgets.Sum(b => b.Budget.Limit) * 100m) : 0;
             FilterTransactions();
             UpdatePage();
@@ -91,9 +99,15 @@ public partial class MainWindow : Window
         }
         finally
         {
-            loading = false;
-            ReportPeriodControls.IsEnabled = true;
+            SetLoading(false);
         }
+    }
+
+    private void SetLoading(bool value)
+    {
+        loading = value;
+        ReportPeriodControls.IsEnabled = !value;
+        BudgetPeriodControls.IsEnabled = !value;
     }
 
     private Task<FinanceReportDto> GetReport(DateOnly from, DateOnly toExclusive) =>
@@ -125,8 +139,7 @@ public partial class MainWindow : Window
         }
 
         var toExclusive = through.AddDays(1);
-        loading = true;
-        ReportPeriodControls.IsEnabled = false;
+        SetLoading(true);
         try
         {
             var report = await GetReport(from, toExclusive);
@@ -145,8 +158,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            loading = false;
-            ReportPeriodControls.IsEnabled = true;
+            SetLoading(false);
         }
     }
 
@@ -201,6 +213,17 @@ public partial class MainWindow : Window
         RhythmIndicators.Columns = page == "Отчёты" ? 1 : 2;
         var report = page == "Отчёты" ? periodReport : monthlyReport;
         if (report is not null) ShowSummary(report, page == "Отчёты");
+        BudgetPeriodPanel.Visibility = page == "Бюджеты" ? Visibility.Visible : Visibility.Collapsed;
+        var currentMonth = monthlyReport?.From ?? DateOnly.FromDateTime(DateTime.Today);
+        if (page == "Бюджеты")
+        {
+            ShowBudgets(selectedMonthBudgets, budgetYear, budgetMonth);
+            PeriodLabel.Text = BudgetPeriodText(budgetYear, budgetMonth);
+        }
+        else
+        {
+            ShowBudgets(currentMonthBudgets, currentMonth.Year, currentMonth.Month);
+        }
         foreach (var button in new[] { OverviewNav, AccountsNav, TransactionsNav, BudgetsNav, ReportsNav })
         {
             button.Background = button.Tag.ToString() == page ? new SolidColorBrush(Color.FromRgb(128, 94, 255)) : Brushes.Transparent;
@@ -316,18 +339,165 @@ public partial class MainWindow : Window
 
     private async void SetBudget(object sender, RoutedEventArgs e)
     {
+        if (loading || savingAccount) return;
+        var today = DateTime.Today;
+        var year = today.Year;
+        var month = today.Month;
+        if (page == "Бюджеты" && !TryReadBudgetPeriod(out year, out month)) return;
+        await OpenBudgetForm(year, month);
+    }
+
+    private async void EditBudget(object sender, RoutedEventArgs e)
+    {
+        if (loading || savingAccount || sender is not Button { Tag: BudgetSummaryDto budget }) return;
+        await OpenBudgetForm(budget.Year, budget.Month, budget.CategoryId);
+    }
+
+    private Task<BudgetReportDto[]> GetBudgets(int year, int month) =>
+        api.GetAsync<BudgetReportDto[]>(FormattableString.Invariant($"budgets?year={year}&month={month}"));
+
+    private static string BudgetPeriodText(int year, int month) =>
+        new DateTime(year, month, 1).ToString("MMMM yyyy", CultureInfo.GetCultureInfo("ru-RU"));
+
+    private bool TryReadBudgetPeriod(out int year, out int month)
+    {
+        year = 0;
+        month = BudgetMonthBox.SelectedValue is int selectedMonth ? selectedMonth : 0;
+        if (month < 1 || month > 12 ||
+            !int.TryParse(BudgetYearBox.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out year) ||
+            year < 1 || year > 9999)
+        {
+            ShowBudgetError("Выберите месяц и укажите год от 1 до 9999.");
+            return false;
+        }
+        if (year == 9999 && month == 12)
+        {
+            ShowBudgetError("Выберите более ранний месяц.");
+            return false;
+        }
+        return true;
+    }
+
+    private async void ApplyBudgetPeriod(object sender, RoutedEventArgs e)
+    {
+        if (loading || savingAccount) return;
+        BudgetPeriodError.Visibility = Visibility.Collapsed;
+        if (!TryReadBudgetPeriod(out var year, out var month)) return;
+
+        SetLoading(true);
+        try
+        {
+            var budgets = await GetBudgets(year, month);
+            SetSelectedBudgetMonth(budgets, year, month);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidOperationException)
+        {
+            ShowBudgetError(exception is HttpRequestException
+                ? "Сервер недоступен. Проверьте запуск PersonalFinance.Api."
+                : exception is TaskCanceledException
+                    ? "Сервер не ответил вовремя. Попробуйте ещё раз."
+                    : exception.Message);
+        }
+        finally
+        {
+            SetLoading(false);
+        }
+    }
+
+    private void ShowBudgetError(string message)
+    {
+        BudgetPeriodError.Text = message;
+        BudgetPeriodError.Visibility = Visibility.Visible;
+    }
+
+    private void SetSelectedBudgetMonth(BudgetReportDto[] budgets, int year, int month)
+    {
+        selectedMonthBudgets = budgets;
+        budgetYear = year;
+        budgetMonth = month;
+        BudgetMonthBox.SelectedValue = month;
+        BudgetYearBox.Text = year.ToString(CultureInfo.InvariantCulture);
+        BudgetPeriodError.Visibility = Visibility.Collapsed;
+        if (page == "Бюджеты")
+        {
+            ShowBudgets(budgets, year, month);
+            PeriodLabel.Text = BudgetPeriodText(year, month);
+        }
+    }
+
+    private void ShowBudgets(BudgetReportDto[] budgets, int year, int month)
+    {
+        BudgetTitle.Text = "Бюджеты — " + BudgetPeriodText(year, month);
+        BudgetList.ItemsSource = budgets.Select(b => new
+        {
+            b.Budget,
+            Category = b.CategoryName,
+            Summary = $"{Money(b.Budget.Spent)} из {Money(b.Budget.Limit)}",
+            Percent = Math.Min(100m, b.Budget.Spent / b.Budget.Limit * 100m),
+            BarColor = b.Budget.Status == BudgetStatus.Exceeded ? "#B65539" : "#805EFF",
+            Status = b.Budget.Remaining < 0 ? "Превышение: " + Money(-b.Budget.Remaining) : "Осталось: " + Money(b.Budget.Remaining)
+        }).ToArray();
+        BudgetEmptyLabel.Visibility = budgets.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async Task OpenBudgetForm(int year, int month, Guid? categoryId = null)
+    {
         var expenseCategories = categories.Where(c => c.Type == TransactionType.Expense).ToArray();
         if (expenseCategories.Length == 0) { MessageBox.Show(this, "Сначала создайте категорию расходов."); return; }
-        var form = new EntryWindow("Бюджет на текущий месяц");
-        form.AddChoices("category", "Категория", expenseCategories.Select(c => new Choice(c.Name, c.Id)).ToArray());
+        if (categoryId.HasValue && expenseCategories.All(c => c.Id != categoryId.Value)) return;
+
+        BudgetReportDto[] budgets;
+        SetLoading(true);
+        try
+        {
+            budgets = await GetBudgets(year, month);
+            if (page == "Бюджеты") SetSelectedBudgetMonth(budgets, year, month);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidOperationException)
+        {
+            var message = exception is HttpRequestException ? "Сервер недоступен. Проверьте запуск PersonalFinance.Api." : exception.Message;
+            if (page == "Бюджеты") ShowBudgetError(message);
+            else MessageBox.Show(this, message, "Не удалось загрузить бюджет", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        finally
+        {
+            SetLoading(false);
+        }
+
+        var form = new EntryWindow("Бюджет — " + BudgetPeriodText(year, month)) { Owner = this };
+        var choices = expenseCategories.Select(c => new Choice(c.Name, c.Id)).ToArray();
+        var categoryBox = form.AddChoices("category", "Категория", choices);
         form.AddText("amount", "Месячный лимит, ₽");
+        void FillLimit()
+        {
+            var id = form.Selected<Guid>("category");
+            var existing = budgets.FirstOrDefault(b => b.Budget.CategoryId == id);
+            form.SetText("amount", existing?.Budget.Limit.ToString("0.00", CultureInfo.GetCultureInfo("ru-RU")) ?? "");
+        }
+        categoryBox.SelectionChanged += (_, _) => FillLimit();
+        if (categoryId.HasValue)
+        {
+            categoryBox.SelectedItem = choices.Single(choice => (Guid)choice.Value == categoryId.Value);
+            categoryBox.IsEnabled = false;
+        }
+        FillLimit();
+        var submitting = false;
+        form.Closing += (_, args) => args.Cancel = submitting;
         form.Submit = async () =>
         {
-            var today = DateTime.Today;
-            var id = form.Selected<Guid>("category");
-            await api.SendAsync<BudgetDto>($"budgets/{id}/{today.Year}/{today.Month}", new SetBudgetRequest(id, today.Year, today.Month, ParseMoney(form.Text("amount"))), HttpMethod.Put);
+            submitting = true;
+            try
+            {
+                var id = form.Selected<Guid>("category");
+                var path = FormattableString.Invariant($"budgets/{id}/{year}/{month}");
+                await api.SendAsync<BudgetDto>(path, new SetBudgetRequest(id, year, month, ParseMoney(form.Text("amount"))), HttpMethod.Put);
+            }
+            finally
+            {
+                submitting = false;
+            }
         };
-        form.Owner = this;
         if (form.ShowDialog() == true) await Reload();
     }
 

@@ -35,10 +35,11 @@ public sealed class EntryWindow : Window
         AddField(label, field);
     }
 
-    public void AddChoices(string key, string label, Choice[] choices)
+    public ComboBox AddChoices(string key, string label, Choice[] choices)
     {
         var field = new ComboBox { ItemsSource = choices, DisplayMemberPath = "Name", SelectedIndex = 0 }; fields[key] = field;
         AddField(label, field);
+        return field;
     }
 
     private void AddField(string label, Control field)
@@ -48,5 +49,6 @@ public sealed class EntryWindow : Window
     }
 
     public string Text(string key) => ((TextBox)fields[key]).Text;
+    public void SetText(string key, string value) => ((TextBox)fields[key]).Text = value;
     public T Selected<T>(string key) => (T)((Choice)((ComboBox)fields[key]).SelectedItem).Value;
 }
