@@ -13,6 +13,7 @@ public record ValidationResult(bool IsValid, string? ErrorCode);
 public static class AccountErrorCodes
 {
     public const string NotFound = "ACCOUNT_NOT_FOUND";
+    public const string ValidationTimeout = "ACCOUNT_VALIDATION_TIMEOUT";
     public const string Archived = "ACCOUNT_ARCHIVED";
     public const string InvalidName = "INVALID_ACCOUNT_NAME";
     public const string InvalidOpeningBalance = "INVALID_OPENING_BALANCE";

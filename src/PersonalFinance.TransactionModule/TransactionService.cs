@@ -65,7 +65,7 @@ public sealed class TransactionService(
             throw Error(TransactionErrorCodes.InvalidComment, "Комментарий должен содержать не более 150 символов.");
         }
 
-        var validation = await accountValidation.ValidateAsync(new(userId, request.AccountId), cancellationToken);
+        var validation = await ValidateAccountAsync(new(userId, request.AccountId), cancellationToken);
         if (!validation.IsValid)
         {
             throw Error(validation.ErrorCode ?? AccountErrorCodes.NotFound, "Счет недоступен для регистрации операции.");
@@ -130,6 +130,24 @@ public sealed class TransactionService(
         var total = history.Where(transaction => transaction.Request.CategoryId == request.CategoryId &&
             transaction.Request.Type == TransactionType.Expense).Sum(transaction => transaction.Request.Amount);
         return new(true, total, null);
+    }
+
+    private async Task<ValidationResult> ValidateAccountAsync(AccountCheckRequest request, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(2));
+        try
+        {
+            var result = await accountValidation.ValidateAsync(request, timeout.Token).WaitAsync(timeout.Token);
+            timeout.Token.ThrowIfCancellationRequested();
+            return result;
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw Error(AccountErrorCodes.ValidationTimeout,
+                "Проверка счёта не завершилась за 2 секунды. Попробуйте ещё раз.");
+        }
     }
 
     private static TransactionDto ResolveReplay(FinancialTransaction existing, CreateTransactionRequest request)

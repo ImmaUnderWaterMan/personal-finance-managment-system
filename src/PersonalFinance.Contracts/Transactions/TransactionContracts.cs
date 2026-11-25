@@ -44,6 +44,7 @@ public static class TransactionErrorCodes
     public const string InvalidComment = "INVALID_COMMENT";
     public const string InvalidPeriod = "INVALID_PERIOD";
     public const string RequestConflict = "REQUEST_CONFLICT";
+    public const string ExpenseQueryTimeout = "EXPENSE_QUERY_TIMEOUT";
 }
 
 public sealed class TransactionException(string code, string message) : Exception(message)

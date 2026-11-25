@@ -16,7 +16,7 @@ using PersonalFinance.TransactionModule;
 
 namespace PersonalFinance.IntegrationTests;
 
-internal sealed class FinanceApiFactory : WebApplicationFactory<Program>
+internal sealed class FinanceApiFactory(Action<IServiceCollection>? configureServices = null) : WebApplicationFactory<Program>
 {
     protected override IHost CreateHost(IHostBuilder builder)
     {
@@ -44,6 +44,7 @@ internal sealed class FinanceApiFactory : WebApplicationFactory<Program>
                 options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
                 options.DefaultChallengeScheme = TestAuthenticationHandler.SchemeName;
             }).AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(TestAuthenticationHandler.SchemeName, _ => { });
+            configureServices?.Invoke(services);
         });
     }
 }

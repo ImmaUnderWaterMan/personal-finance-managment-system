@@ -35,7 +35,24 @@ public sealed class BudgetService(IBudgetRepository repository, IExpenseQuerySer
 
     private async Task<decimal> QueryExpenses(Guid userId, Guid categoryId, DateOnly from, DateOnly to, CancellationToken cancellationToken)
     {
-        var result = await expenses.GetTotalAsync(new(userId, categoryId, from, to), cancellationToken);
+        ExpenseSummaryResult result;
+        using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+        {
+            timeout.CancelAfter(TimeSpan.FromSeconds(2));
+            try
+            {
+                result = await expenses.GetTotalAsync(new(userId, categoryId, from, to), timeout.Token)
+                    .WaitAsync(timeout.Token);
+                timeout.Token.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new BudgetException(TransactionErrorCodes.ExpenseQueryTimeout,
+                    "Расчёт расходов не завершился за 2 секунды. Попробуйте ещё раз.");
+            }
+        }
+
         if (!result.Success || result.Total is null || result.Total < 0)
         {
             throw new BudgetException(result.ErrorCode ?? BudgetErrorCodes.ExpenseQueryFailed, "Не удалось получить расходы по категории.");

@@ -70,7 +70,9 @@ app.Use(async (context, next) =>
             ReportException e => e.Code,
             _ => "INVALID_REQUEST"
         };
-        var status = code.EndsWith("NOT_FOUND") ? 404 : code is "REQUEST_CONFLICT" or "ACCOUNT_ARCHIVED" ? 409 : 400;
+        var status = code is AccountErrorCodes.ValidationTimeout or TransactionErrorCodes.ExpenseQueryTimeout
+            ? StatusCodes.Status504GatewayTimeout
+            : code.EndsWith("NOT_FOUND") ? 404 : code is "REQUEST_CONFLICT" or "ACCOUNT_ARCHIVED" ? 409 : 400;
         await Results.Problem(statusCode: status, title: exception.Message, extensions: new Dictionary<string, object?> { ["code"] = code }).ExecuteAsync(context);
     }
     catch (DbUpdateException exception) when (exception.InnerException is PostgresException { SqlState: "23505" })
