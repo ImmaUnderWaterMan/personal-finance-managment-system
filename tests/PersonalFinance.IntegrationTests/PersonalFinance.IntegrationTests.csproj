@@ -21,4 +21,7 @@
     <ProjectReference Include="../../src/PersonalFinance.ReportModule/PersonalFinance.ReportModule.csproj" />
     <ProjectReference Include="../../src/PersonalFinance.Persistence/PersonalFinance.Persistence.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="../../database/*.sql" Link="Database/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
